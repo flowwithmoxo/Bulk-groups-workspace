@@ -5,6 +5,7 @@ let isRunning = false;
 
 function addLog(message, type = 'info') {
     const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
     const div = document.createElement('div');
     div.className = `log-entry ${type}`;
     const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
@@ -14,44 +15,67 @@ function addLog(message, type = 'info') {
 }
 
 function updatePreview() {
-    const template = document.getElementById('binderNameTemplate').value;
-    const clientsText = document.getElementById('clientsList').value;
-    const firstLine = clientsText.split('\n').find(l => l.trim() && l.includes(','));
+    const template = document.getElementById('binderNameTemplate');
+    const clientsText = document.getElementById('clientsList');
+    const namePreview = document.getElementById('namePreviewText');
+    
+    if (!template || !clientsText || !namePreview) return;
+    
+    const templateValue = template.value;
+    const firstLine = clientsText.value.split('\n').find(l => l.trim() && l.includes(','));
     
     if (firstLine) {
         const parts = firstLine.split(',');
         const name = parts[1] ? parts[1].trim() : parts[0].split('@')[0];
         const email = parts[0].trim();
-        let preview = template.replace(/{{name}}/g, name).replace(/{{email}}/g, email);
-        document.getElementById('namePreviewText').innerText = preview;
+        let preview = templateValue.replace(/{{name}}/g, name).replace(/{{email}}/g, email);
+        namePreview.innerText = preview;
     } else {
-        document.getElementById('namePreviewText').innerText = 'Add client to see preview';
+        namePreview.innerText = 'Add client to see preview';
     }
 }
 
 function updateCounts() {
-    const clients = document.getElementById('clientsList').value.split('\n').filter(l => l.trim() && l.includes(','));
-    const team = document.getElementById('teamList').value.split('\n').filter(l => l.trim() && l.includes(','));
-    document.getElementById('clientCount').innerText = `${clients.length} clients`;
-    document.getElementById('teamCount').innerText = `${team.length} members`;
+    const clientsList = document.getElementById('clientsList');
+    const teamList = document.getElementById('teamList');
+    const clientCount = document.getElementById('clientCount');
+    const teamCount = document.getElementById('teamCount');
+    
+    if (clientsList && clientCount) {
+        const clients = clientsList.value.split('\n').filter(l => l.trim() && l.includes(','));
+        clientCount.innerText = `${clients.length} clients`;
+    }
+    if (teamList && teamCount) {
+        const team = teamList.value.split('\n').filter(l => l.trim() && l.includes(','));
+        teamCount.innerText = `${team.length} members`;
+    }
     updatePreview();
 }
 
 function saveConfig() {
+    // Safe getElementById with null checks
+    const getVal = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.value : '';
+    };
+    const getChecked = (id) => {
+        const el = document.getElementById(id);
+        return el ? el.checked : false;
+    };
+    
     const config = {
-        domain: document.getElementById('domain').value,
-        orgId: document.getElementById('orgId').value,
-        clientId: document.getElementById('clientId').value,
-        clientSecret: document.getElementById('clientSecret').value,
-        identityType: document.getElementById('identityType').value,
-        identityValue: document.getElementById('identityValue').value,
-        binderNameTemplate: document.getElementById('binderNameTemplate').value,
-        binderDescription: document.getElementById('binderDescription').value,
-        referenceId: document.getElementById('referenceId').value,
-        workspaceTags: document.getElementById('workspaceTags').value,
-        boardOwnerEmail: document.getElementById('boardOwnerEmail').value,
-        restricted: document.getElementById('restricted').checked,
-        suppressFeed: document.getElementById('suppressFeed').checked
+        domain: getVal('domain'),
+        orgId: getVal('orgId'),
+        clientId: getVal('clientId'),
+        clientSecret: getVal('clientSecret'),
+        identityType: getVal('identityType'),
+        identityValue: getVal('identityValue'),
+        binderNameTemplate: getVal('binderNameTemplate'),
+        binderDescription: getVal('binderDescription'),
+        referenceId: getVal('referenceId'),
+        boardOwnerEmail: getVal('boardOwnerEmail'),
+        restricted: getChecked('restricted'),
+        suppressFeed: getChecked('suppressFeed')
     };
     localStorage.setItem('moxo_binder_config', JSON.stringify(config));
 }
@@ -61,19 +85,27 @@ function loadSavedData() {
     if (saved) {
         try {
             const c = JSON.parse(saved);
-            document.getElementById('domain').value = c.domain || '';
-            document.getElementById('orgId').value = c.orgId || '';
-            document.getElementById('clientId').value = c.clientId || '';
-            document.getElementById('clientSecret').value = c.clientSecret || '';
-            document.getElementById('identityType').value = c.identityType || 'email';
-            document.getElementById('identityValue').value = c.identityValue || '';
-            document.getElementById('binderNameTemplate').value = c.binderNameTemplate || '{{name}} Workspace';
-            document.getElementById('binderDescription').value = c.binderDescription || '';
-            document.getElementById('referenceId').value = c.referenceId || '';
-            document.getElementById('workspaceTags').value = c.workspaceTags || '';
-            document.getElementById('boardOwnerEmail').value = c.boardOwnerEmail || '';
-            document.getElementById('restricted').checked = c.restricted || false;
-            document.getElementById('suppressFeed').checked = c.suppressFeed || false;
+            const setVal = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.value = val || '';
+            };
+            const setChecked = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.checked = val || false;
+            };
+            
+            setVal('domain', c.domain);
+            setVal('orgId', c.orgId);
+            setVal('clientId', c.clientId);
+            setVal('clientSecret', c.clientSecret);
+            setVal('identityType', c.identityType || 'email');
+            setVal('identityValue', c.identityValue);
+            setVal('binderNameTemplate', c.binderNameTemplate || '{{name}} Workspace');
+            setVal('binderDescription', c.binderDescription);
+            setVal('referenceId', c.referenceId);
+            setVal('boardOwnerEmail', c.boardOwnerEmail);
+            setChecked('restricted', c.restricted);
+            setChecked('suppressFeed', c.suppressFeed);
         } catch(e) {}
     }
     
@@ -84,8 +116,10 @@ function loadSavedData() {
             if (new Date(t.expiry) > new Date()) {
                 accessToken = t.access_token;
                 tokenExpiry = t.expiry;
-                document.getElementById('tokenDot').classList.add('valid');
-                document.getElementById('tokenStatus').innerText = 'Token Ready';
+                const tokenDot = document.getElementById('tokenDot');
+                const tokenStatus = document.getElementById('tokenStatus');
+                if (tokenDot) tokenDot.classList.add('valid');
+                if (tokenStatus) tokenStatus.innerText = 'Token Ready';
             }
         } catch(e) {}
     }
@@ -95,48 +129,62 @@ function loadSavedData() {
 }
 
 function attachListeners() {
-    document.getElementById('clientsList').addEventListener('input', updateCounts);
-    document.getElementById('teamList').addEventListener('input', updateCounts);
-    document.getElementById('binderNameTemplate').addEventListener('input', () => {
+    const clientsList = document.getElementById('clientsList');
+    const teamList = document.getElementById('teamList');
+    const binderNameTemplate = document.getElementById('binderNameTemplate');
+    
+    if (clientsList) clientsList.addEventListener('input', updateCounts);
+    if (teamList) teamList.addEventListener('input', updateCounts);
+    if (binderNameTemplate) binderNameTemplate.addEventListener('input', () => {
         updatePreview();
         saveConfig();
     });
     
-    ['domain', 'orgId', 'clientId', 'clientSecret', 'identityType', 'identityValue', 
-     'binderDescription', 'referenceId', 'workspaceTags', 'boardOwnerEmail'].forEach(id => {
+    const saveFields = ['domain', 'orgId', 'clientId', 'clientSecret', 'identityType', 'identityValue', 
+     'binderDescription', 'referenceId', 'boardOwnerEmail'];
+    
+    saveFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', saveConfig);
     });
     
-    document.getElementById('restricted').addEventListener('change', saveConfig);
-    document.getElementById('suppressFeed').addEventListener('change', saveConfig);
+    const restricted = document.getElementById('restricted');
+    const suppressFeed = document.getElementById('suppressFeed');
+    if (restricted) restricted.addEventListener('change', saveConfig);
+    if (suppressFeed) suppressFeed.addEventListener('change', saveConfig);
     
-    document.getElementById('identityType').addEventListener('change', function() {
-        const type = this.value;
-        const label = document.getElementById('identityLabel');
-        const input = document.getElementById('identityValue');
-        if (type === 'email') {
-            label.innerText = 'Identity Value (Email)';
-            input.placeholder = 'admin@example.com';
-        } else if (type === 'unique_id') {
-            label.innerText = 'Identity Value (Unique ID)';
-            input.placeholder = 'user_123';
-        } else {
-            label.innerText = 'Identity Value (Phone)';
-            input.placeholder = '+1234567890';
-        }
-        saveConfig();
-    });
+    const identityType = document.getElementById('identityType');
+    if (identityType) {
+        identityType.addEventListener('change', function() {
+            const type = this.value;
+            const label = document.getElementById('identityLabel');
+            const input = document.getElementById('identityValue');
+            if (type === 'email') {
+                if (label) label.innerText = 'Identity Value (Email)';
+                if (input) input.placeholder = 'admin@example.com';
+            } else if (type === 'unique_id') {
+                if (label) label.innerText = 'Identity Value (Unique ID)';
+                if (input) input.placeholder = 'user_123';
+            } else {
+                if (label) label.innerText = 'Identity Value (Phone)';
+                if (input) input.placeholder = '+1234567890';
+            }
+            saveConfig();
+        });
+    }
 }
 
 async function generateToken() {
-    const domain = document.getElementById('domain').value;
-    const orgId = document.getElementById('orgId').value;
-    const clientId = document.getElementById('clientId').value;
-    const clientSecret = document.getElementById('clientSecret').value;
-    const identityType = document.getElementById('identityType').value;
-    const identityValue = document.getElementById('identityValue').value;
+    let domain = document.getElementById('domain')?.value || '';
+    const orgId = document.getElementById('orgId')?.value || '';
+    const clientId = document.getElementById('clientId')?.value || '';
+    const clientSecret = document.getElementById('clientSecret')?.value || '';
+    const identityType = document.getElementById('identityType')?.value || 'email';
+    const identityValue = document.getElementById('identityValue')?.value || '';
 
+    // Clean domain - remove any http:// or https://
+    domain = domain.replace(/^https?:\/\//, '');
+    
     if (!domain || !orgId || !clientId || !clientSecret || !identityValue) {
         addLog('❌ Please fill all credential fields', 'error');
         return;
@@ -152,7 +200,10 @@ async function generateToken() {
     };
 
     try {
-        const response = await fetch(`https://${domain}/v1/core/oauth/token`, {
+        const url = `https://${domain}/v1/core/oauth/token`;
+        addLog(`📡 URL: ${url}`, 'info');
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -167,8 +218,10 @@ async function generateToken() {
                 access_token: accessToken,
                 expiry: tokenExpiry.toISOString()
             }));
-            document.getElementById('tokenDot').classList.add('valid');
-            document.getElementById('tokenStatus').innerText = 'Token Ready';
+            const tokenDot = document.getElementById('tokenDot');
+            const tokenStatus = document.getElementById('tokenStatus');
+            if (tokenDot) tokenDot.classList.add('valid');
+            if (tokenStatus) tokenStatus.innerText = 'Token Ready';
             addLog('✅ Token generated successfully!', 'success');
             saveConfig();
         } else {
@@ -185,7 +238,7 @@ async function createGroupBinder(client, internalTeam, boardOwnerEmail, settings
     const users = [];
     let hasOwner = false;
     
-    // Add all internal team members
+    // Add all internal team members (these must EXIST in Moxo)
     for (const member of internalTeam) {
         if (!member.email || !member.email.trim()) continue;
         
@@ -203,7 +256,7 @@ async function createGroupBinder(client, internalTeam, boardOwnerEmail, settings
         users.push(userObj);
     }
     
-    // Add client as member
+    // Add client as member (client must EXIST in Moxo)
     const clientUserObj = { 
         user: { 
             email: client.email.trim()
@@ -215,6 +268,7 @@ async function createGroupBinder(client, internalTeam, boardOwnerEmail, settings
     if (!hasOwner && users.length > 0) {
         users[0].user.member_type = 'BOARD_OWNER';
         addLog(`⚠️ No BOARD_OWNER specified, assigning ${users[0].user.email} as owner`, 'warning');
+        hasOwner = true;
     }
     
     // Build binder name with variables
@@ -228,19 +282,6 @@ async function createGroupBinder(client, internalTeam, boardOwnerEmail, settings
         referenceId = settings.referenceId
             .replace(/{{name}}/g, client.name)
             .replace(/{{email}}/g, client.email);
-    }
-    
-    // Build workspace tags - FIXED: better JSON parsing
-    let workspaceTags = null;
-    if (settings.workspaceTags && settings.workspaceTags.trim()) {
-        try {
-            // Try to parse as JSON
-            const tagsObj = JSON.parse(settings.workspaceTags);
-            workspaceTags = Object.entries(tagsObj).map(([name, value]) => ({ name, value }));
-        } catch(e) {
-            addLog(`⚠️ Invalid JSON for workspace tags, skipping: ${e.message}`, 'warning');
-            // Don't fail the whole request, just skip tags
-        }
     }
     
     // Build payload
@@ -260,9 +301,6 @@ async function createGroupBinder(client, internalTeam, boardOwnerEmail, settings
     }
     if (settings.suppressFeed) {
         payload.suppress_feed = true;
-    }
-    if (workspaceTags && workspaceTags.length > 0) {
-        payload.workspace_tags = workspaceTags;
     }
     
     console.log('📦 Payload:', JSON.stringify(payload, null, 2));
@@ -298,8 +336,10 @@ async function createGroupBinders() {
         return;
     }
     
-    const domain = document.getElementById('domain').value;
-    const orgId = document.getElementById('orgId').value;
+    let domain = document.getElementById('domain')?.value || '';
+    const orgId = document.getElementById('orgId')?.value || '';
+    
+    domain = domain.replace(/^https?:\/\//, '');
     
     if (!domain || !orgId) {
         addLog('❌ Please configure domain and org ID', 'error');
@@ -307,7 +347,13 @@ async function createGroupBinders() {
     }
     
     // Parse clients (format: email,name)
-    const clientsText = document.getElementById('clientsList').value;
+    const clientsTextarea = document.getElementById('clientsList');
+    if (!clientsTextarea) {
+        addLog('❌ Clients list not found', 'error');
+        return;
+    }
+    
+    const clientsText = clientsTextarea.value;
     const clients = [];
     for (const line of clientsText.split('\n')) {
         const trimmedLine = line.trim();
@@ -322,21 +368,24 @@ async function createGroupBinders() {
     }
     
     // Parse internal team (format: email)
-    const teamText = document.getElementById('teamList').value;
+    const teamTextarea = document.getElementById('teamList');
     const internalTeam = [];
-    for (const line of teamText.split('\n')) {
-        const trimmedLine = line.trim();
-        if (trimmedLine && trimmedLine.includes(',')) {
-            const parts = trimmedLine.split(',');
-            const email = parts[0].trim();
-            if (email && email.includes('@')) {
-                internalTeam.push({ email, member_type: '' });
+    if (teamTextarea) {
+        for (const line of teamTextarea.value.split('\n')) {
+            const trimmedLine = line.trim();
+            if (trimmedLine && trimmedLine.includes(',')) {
+                const parts = trimmedLine.split(',');
+                const email = parts[0].trim();
+                if (email && email.includes('@')) {
+                    internalTeam.push({ email, member_type: '' });
+                }
             }
         }
     }
     
     // Get BOARD_OWNER email from input
-    const boardOwnerEmail = document.getElementById('boardOwnerEmail').value.trim();
+    const boardOwnerEmailInput = document.getElementById('boardOwnerEmail');
+    const boardOwnerEmail = boardOwnerEmailInput ? boardOwnerEmailInput.value.trim() : '';
     
     if (clients.length === 0) {
         addLog('❌ Add at least one client (format: email,name)', 'error');
@@ -348,6 +397,9 @@ async function createGroupBinders() {
         return;
     }
     
+    // IMPORTANT: Warn that all users must exist in Moxo
+    addLog('⚠️ IMPORTANT: All client emails and internal team emails MUST already exist in your Moxo organization!', 'warning');
+    
     if (!boardOwnerEmail) {
         addLog('⚠️ No BOARD_OWNER specified, will auto-assign first internal user', 'warning');
     } else if (!internalTeam.some(m => m.email === boardOwnerEmail)) {
@@ -358,12 +410,11 @@ async function createGroupBinders() {
     const settings = {
         domain: domain,
         orgId: orgId,
-        binderNameTemplate: document.getElementById('binderNameTemplate').value,
-        description: document.getElementById('binderDescription').value,
-        referenceId: document.getElementById('referenceId').value,
-        workspaceTags: document.getElementById('workspaceTags').value,
-        restricted: document.getElementById('restricted').checked,
-        suppressFeed: document.getElementById('suppressFeed').checked
+        binderNameTemplate: document.getElementById('binderNameTemplate')?.value || '{{name}} Workspace',
+        description: document.getElementById('binderDescription')?.value || '',
+        referenceId: document.getElementById('referenceId')?.value || '',
+        restricted: document.getElementById('restricted')?.checked || false,
+        suppressFeed: document.getElementById('suppressFeed')?.checked || false
     };
     
     const total = clients.length;
@@ -375,11 +426,19 @@ async function createGroupBinders() {
     }
     
     // Show progress UI
-    document.getElementById('createBtn').disabled = true;
-    document.getElementById('createBtn').innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Creating...';
-    document.getElementById('statusBadge').classList.add('running');
-    document.getElementById('statusBadge').innerText = 'Creating...';
-    document.getElementById('progressSection').style.display = 'block';
+    const createBtn = document.getElementById('createBtn');
+    const statusBadge = document.getElementById('statusBadge');
+    const progressSection = document.getElementById('progressSection');
+    
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Creating...';
+    }
+    if (statusBadge) {
+        statusBadge.classList.add('running');
+        statusBadge.innerText = 'Creating...';
+    }
+    if (progressSection) progressSection.style.display = 'block';
     
     let successCount = 0;
     let errorCount = 0;
@@ -400,32 +459,45 @@ async function createGroupBinders() {
         
         // Update progress
         const percent = ((i + 1) / total) * 100;
-        document.getElementById('progressFill').style.width = `${percent}%`;
-        document.getElementById('progressText').innerText = `${i+1}/${total} processed`;
-        document.getElementById('successCount').innerText = successCount;
-        document.getElementById('errorCount').innerText = errorCount;
+        const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+        const successCountSpan = document.getElementById('successCount');
+        const errorCountSpan = document.getElementById('errorCount');
+        
+        if (progressFill) progressFill.style.width = `${percent}%`;
+        if (progressText) progressText.innerText = `${i+1}/${total} processed`;
+        if (successCountSpan) successCountSpan.innerText = successCount;
+        if (errorCountSpan) errorCountSpan.innerText = errorCount;
     }
     
     // Reset UI
-    document.getElementById('createBtn').disabled = false;
-    document.getElementById('createBtn').innerHTML = '<i class="fas fa-play"></i> Create Group Binders';
-    document.getElementById('statusBadge').classList.remove('running');
-    document.getElementById('statusBadge').innerText = 'Ready';
+    if (createBtn) {
+        createBtn.disabled = false;
+        createBtn.innerHTML = '<i class="fas fa-play"></i> Create Group Binders';
+    }
+    if (statusBadge) {
+        statusBadge.classList.remove('running');
+        statusBadge.innerText = 'Ready';
+    }
     
     addLog(`🎉 Complete! Success: ${successCount}, Failed: ${errorCount}`, successCount > 0 ? 'success' : 'info');
 }
 
 function clearLogs() {
     const logContainer = document.getElementById('logContainer');
-    logContainer.innerHTML = `<div class="log-entry info"><i class="fas fa-check-circle"></i> Logs cleared</div>`;
+    if (logContainer) {
+        logContainer.innerHTML = `<div class="log-entry info"><i class="fas fa-check-circle"></i> Logs cleared</div>`;
+    }
 }
 
 function toggleConfig() {
-    document.getElementById('configPanel').classList.toggle('show');
+    const panel = document.getElementById('configPanel');
+    if (panel) panel.classList.toggle('show');
 }
 
 function uploadCSV(type) {
-    document.getElementById(`${type}Csv`).click();
+    const input = document.getElementById(`${type}Csv`);
+    if (input) input.click();
 }
 
 function handleCSVUpload(type, input) {
@@ -445,9 +517,11 @@ function handleCSVUpload(type, input) {
         }
         
         const textarea = document.getElementById(`${type}List`);
-        const existing = textarea.value.split('\n').filter(l => l.trim());
-        const all = [...existing, ...rows];
-        textarea.value = all.join('\n');
+        if (textarea) {
+            const existing = textarea.value.split('\n').filter(l => l.trim());
+            const all = [...existing, ...rows];
+            textarea.value = all.join('\n');
+        }
         updateCounts();
         addLog(`📄 ${rows.length} ${type} loaded from CSV`, 'success');
     };
@@ -473,12 +547,14 @@ function downloadSampleCSV(type) {
 }
 
 function clearClients() {
-    document.getElementById('clientsList').value = '';
+    const clientsList = document.getElementById('clientsList');
+    if (clientsList) clientsList.value = '';
     updateCounts();
 }
 
 function clearTeam() {
-    document.getElementById('teamList').value = '';
+    const teamList = document.getElementById('teamList');
+    if (teamList) teamList.value = '';
     updateCounts();
 }
 
